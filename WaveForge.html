@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaveForge - G-Code Wave Editor v3</title>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #1c2333;
+  --border: #30363d; --text: #e6edf3; --text2: #8b949e;
+  --accent: #f97316; --accent2: #fb923c; --blue: #60a5fa;
+  --green: #34d399; --red: #f87171;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',Arial,sans-serif; overflow:hidden; height:100vh; }
+a { color:var(--accent); }
+
+/* Layout */
+#app { display:flex; height:100vh; }
+#sidebar { width:340px; min-width:340px; background:var(--bg2); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow-y:auto; }
+#viewport { flex:1; position:relative; }
+
+/* Sidebar sections */
+.section { padding:16px 18px; border-bottom:1px solid var(--border); }
+.section h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1.5px;
+  color:var(--accent); margin-bottom:12px; font-weight:600; }
+
+/* Logo */
+#logo { padding:20px 18px; border-bottom:1px solid var(--border); text-align:center; }
+#logo h1 { font-size:1.3rem; font-weight:700; letter-spacing:2px; }
+#logo h1 span { color:var(--accent); }
+#logo p { font-size:0.68rem; color:var(--text2); margin-top:4px; }
+
+/* Upload area */
+#upload-area {
+  border:2px dashed var(--border); border-radius:10px;
+  padding:24px 16px; text-align:center; cursor:pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+#upload-area:hover, #upload-area.drag-over {
+  border-color:var(--accent); background:rgba(249,115,22,0.05);
+}
+#upload-area svg { width:36px; height:36px; margin-bottom:8px; opacity:0.5; }
+#upload-area .label { font-size:0.82rem; color:var(--text2); }
+#upload-area .loaded { color:var(--green); font-weight:600; }
+#file-input { display:none; }
+
+/* Controls */
+.ctrl { margin-bottom:14px; }
+.ctrl label { display:flex; justify-content:space-between; font-size:0.73rem; color:var(--text2); margin-bottom:4px; }
+.ctrl label .val { color:var(--text); font-weight:600; font-family:monospace; }
+.ctrl input[type=range] { width:100%; accent-color:var(--accent); height:6px; cursor:pointer; }
+.ctrl .hint { font-size:0.62rem; color:var(--text2); margin-top:2px; opacity:0.7; }
+
+/* Select dropdown */
+.ctrl select {
+  width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+  padding:7px 10px; color:var(--text); font-size:0.82rem; cursor:pointer;
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center;
+}
+.ctrl select:focus { outline:none; border-color:var(--accent); }
+
+/* Number inputs */
+.num-row { display:flex; gap:10px; margin-bottom:14px; }
+.num-field { flex:1; }
+.num-field label { display:block; font-size:0.7rem; color:var(--text2); margin-bottom:4px; }
+.num-field input {
+  width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+  padding:6px 10px; color:var(--text); font-size:0.82rem; font-family:monospace;
+}
+.num-field input:focus { outline:none; border-color:var(--accent); }
+.num-field .unit { font-size:0.62rem; color:var(--text2); margin-top:2px; }
+
+/* Buttons */
+.btn {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  width:100%; padding:10px 16px; border:none; border-radius:8px;
+  font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.15s;
+}
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent2); }
+.btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-secondary { background:var(--bg3); color:var(--text); border:1px solid var(--border); }
+.btn-secondary:hover { border-color:var(--accent); }
+.btn-group { display:flex; gap:8px; }
+
+/* Preset buttons */
+.preset-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.preset-btn {
+  background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+  padding:8px 6px; color:var(--text); font-size:0.7rem; cursor:pointer;
+  transition:all 0.15s; text-align:center; line-height:1.3;
+}
+.preset-btn:hover { border-color:var(--accent); background:rgba(249,115,22,0.08); }
+.preset-btn .preset-icon { font-size:1.1rem; display:block; margin-bottom:3px; }
+.preset-btn .preset-name { font-weight:600; font-size:0.68rem; }
+
+/* Compare toggle */
+.toggle-row { display:flex; align-items:center; gap:10px; margin-top:10px; }
+.toggle-row label { font-size:0.73rem; color:var(--text2); cursor:pointer; }
+.toggle-row input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; }
+
+/* Status bar */
+#status {
+  padding:10px 18px; background:var(--bg); border-top:1px solid var(--border);
+  font-size:0.7rem; color:var(--text2); margin-top:auto;
+}
+#status .stat { display:flex; justify-content:space-between; margin-bottom:3px; }
+#status .stat span:last-child { color:var(--text); font-family:monospace; }
+
+/* 3D Viewport */
+canvas { display:block; }
+#viewport-overlay {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:var(--bg); z-index:5; flex-direction:column;
+}
+#viewport-overlay.hidden { display:none; }
+#viewport-overlay svg { width:48px; height:48px; opacity:0.3; margin-bottom:12px; }
+#viewport-overlay p { color:var(--text2); font-size:0.85rem; }
+
+/* Processing indicator */
+#processing {
+  position:absolute; top:16px; right:16px; background:rgba(0,0,0,0.8);
+  border-radius:8px; padding:8px 16px; font-size:0.75rem; color:var(--accent);
+  display:none; z-index:10; backdrop-filter:blur(8px);
+}
+
+/* Layer slider */
+#layer-ctrl {
+  position:absolute; bottom:16px; left:16px; right:16px;
+  background:rgba(0,0,0,0.7); border-radius:10px; padding:10px 16px;
+  backdrop-filter:blur(8px); display:none; z-index:5;
+}
+#layer-ctrl label { font-size:0.7rem; color:var(--text2); display:flex; justify-content:space-between; margin-bottom:4px; }
+#layer-ctrl label span { color:var(--text); font-weight:600; }
+#layer-ctrl input { width:100%; accent-color:var(--accent); }
+
+/* Legend */
+#legend {
+  position:absolute; top:16px; left:16px;
+  background:rgba(0,0,0,0.7); border-radius:8px; padding:8px 14px;
+  font-size:0.68rem; backdrop-filter:blur(8px); display:none; z-index:5;
+}
+.leg-item { display:flex; align-items:center; gap:6px; margin-bottom:4px; color:var(--text2); }
+.leg-dot { width:10px; height:3px; border-radius:2px; }
+
+/* Sub-label */
+.sub-label { font-size:0.68rem; color:var(--accent2); margin-bottom:8px; margin-top:6px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div id="logo">
+    <h1>WAVE<span>FORGE</span></h1>
+    <p>G-Code Wave Texture Editor v3</p>
+  </div>
+
+  <!-- Upload -->
+  <div class="section">
+    <h3>1. Upload G-Code</h3>
+    <div id="upload-area" onclick="document.getElementById('file-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 16v-8m0 0-3 3m3-3 3 3M6 20h12a2 2 0 002-2V8l-5-5H6a2 2 0 00-2 2v13a2 2 0 002 2z"/>
+      </svg>
+      <div class="label" id="upload-label">Drop .gcode file here or click to browse</div>
+    </div>
+    <input type="file" id="file-input" accept=".gcode,.gc,.g">
+  </div>
+
+  <!-- Printer Settings -->
+  <div class="section">
+    <h3>2. Printer Settings</h3>
+    <div class="num-row">
+      <div class="num-field">
+        <label>Extrusion Width</label>
+        <input type="number" id="in-width" value="4.0" min="0.2" max="20" step="0.1">
+        <div class="unit">mm</div>
+      </div>
+      <div class="num-field">
+        <label>Layer Height</label>
+        <input type="number" id="in-height" value="2.1" min="0.05" max="10" step="0.1">
+        <div class="unit">mm</div>
+      </div>
+    </div>
+
+    <div class="ctrl">
+      <label>Brim Lines <span class="val" id="lbl-brim">0</span></label>
+      <input type="range" id="sl-brim" min="0" max="10" value="0" step="1">
+      <div class="hint">Extra outline loops on first layer for bed adhesion (0 = off)</div>
+    </div>
+  </div>
+
+  <!-- Wave Parameters -->
+  <div class="section">
+    <h3>3. Wave Settings</h3>
+
+    <div class="ctrl">
+      <label>Pattern <span class="val" id="lbl-pattern">Sine</span></label>
+      <select id="sel-pattern">
+        <option value="sine">Sine - smooth flowing waves</option>
+        <option value="zigzag">Zigzag - sharp sawtooth peaks</option>
+        <option value="square">Square - flat brickwork steps</option>
+        <option value="diamond">Diamond - woven scale texture</option>
+        <option value="double">Double Wave - organic coral feel</option>
+        <option value="noise">Noise - organic hand-made wobble</option>
+        <option value="ripple">Ripple - pulsing amplitude beats</option>
+      </select>
+      <div class="hint">Base wave shape applied along the toolpath</div>
+    </div>
+
+    <div class="ctrl">
+      <label>Amplitude <span class="val" id="lbl-amp">75%</span></label>
+      <input type="range" id="sl-amp" min="10" max="500" value="75" step="5">
+      <div class="hint">% of extrusion width (peak-to-trough) - <span id="lbl-amp-mm">+/-1.50mm</span></div>
+    </div>
+
+    <div class="ctrl">
+      <label>Wavelength <span class="val" id="lbl-wl">30mm</span></label>
+      <input type="range" id="sl-wl" min="8" max="100" value="30" step="1">
+      <div class="hint">Distance between wave peaks along the path</div>
+    </div>
+
+    <div class="sub-label">Layer Alternation</div>
+
+    <div class="ctrl">
+      <label>Alternate Every <span class="val" id="lbl-alt">1 layer</span></label>
+      <input type="range" id="sl-alt" min="1" max="10" value="1" step="1">
+      <div class="hint">Groups of N layers share the same wave, then flip</div>
+    </div>
+
+    <div class="ctrl">
+      <label>Phase Drift <span class="val" id="lbl-drift">0 deg/layer</span></label>
+      <input type="range" id="sl-drift" min="0" max="360" value="0" step="5">
+      <div class="hint">Gradual continuous twist per layer (0 = none, 180 = barber pole)</div>
+    </div>
+
+    <div class="sub-label">Advanced Effects</div>
+
+    <div class="ctrl">
+      <label>Z-Wave <span class="val" id="lbl-zwave">0%</span></label>
+      <input type="range" id="sl-zwave" min="0" max="200" value="0" step="5">
+      <div class="hint">Non-planar Z undulation - nozzle bobs up/down with the wave (<span id="lbl-zwave-mm">0.00mm</span>)</div>
+    </div>
+
+    <div class="ctrl">
+      <label>Flow Modulation <span class="val" id="lbl-flow">0%</span></label>
+      <input type="range" id="sl-flow" min="0" max="100" value="0" step="5">
+      <div class="hint">Vary extrusion at wave peaks vs valleys for 3D texture</div>
+    </div>
+
+    <div class="sub-label">Quality</div>
+
+    <div class="ctrl">
+      <label>Smoothing <span class="val" id="lbl-smooth">5</span></label>
+      <input type="range" id="sl-smooth" min="1" max="15" value="5" step="1">
+      <div class="hint">Direction averaging for corners (higher = smoother)</div>
+    </div>
+
+    <div class="ctrl">
+      <label>Resolution <span class="val" id="lbl-res">1.0mm</span></label>
+      <input type="range" id="sl-res" min="0.3" max="3" value="1.0" step="0.1">
+      <div class="hint">Interpolation step size (smaller = smoother curves)</div>
+    </div>
+  </div>
+
+  <!-- Presets -->
+  <div class="section">
+    <h3>Quick Presets</h3>
+    <div class="preset-grid">
+      <button class="preset-btn" onclick="applyPreset('flowing-fabric')">
+        <span class="preset-icon">~</span>
+        <span class="preset-name">Flowing Fabric</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('dragon-scale')">
+        <span class="preset-icon">#</span>
+        <span class="preset-name">Dragon Scale</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('barber-pole')">
+        <span class="preset-icon">/</span>
+        <span class="preset-name">Barber Pole</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('coral-reef')">
+        <span class="preset-icon">*</span>
+        <span class="preset-name">Coral Reef</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('brickwork')">
+        <span class="preset-icon">=</span>
+        <span class="preset-name">Brickwork</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('terracotta')">
+        <span class="preset-icon">S</span>
+        <span class="preset-name">Terracotta</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="section">
+    <h3>4. Preview</h3>
+    <button class="btn btn-secondary" id="btn-preview" disabled onclick="runPreview()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+      Update Preview
+    </button>
+    <div class="toggle-row">
+      <input type="checkbox" id="chk-compare">
+      <label for="chk-compare">Compare: show original path overlay</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="chk-ribbon" checked>
+      <label for="chk-ribbon">Solid 3D render (uncheck for wireframe)</label>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="section">
+    <h3>5. Export</h3>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btn-export" disabled onclick="exportGcode()" style="flex:1">
+        Download Wavy G-Code
+      </button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="status">
+    <div class="stat"><span>File:</span><span id="st-file">None</span></div>
+    <div class="stat"><span>Layers:</span><span id="st-layers">-</span></div>
+    <div class="stat"><span>Print moves:</span><span id="st-moves">-</span></div>
+    <div class="stat"><span>Path length:</span><span id="st-path">-</span></div>
+  </div>
+</div>
+
+<!-- 3D Viewport -->
+<div id="viewport">
+  <div id="viewport-overlay">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+    </svg>
+    <p>Upload a G-code file to begin</p>
+  </div>
+  <canvas id="c"></canvas>
+  <div id="processing">Processing...</div>
+  <div id="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#34d399"></div>Brim</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#60a5fa"></div>Phase group A</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#fb923c"></div>Phase group B</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(255,255,255,0.2)"></div>Original (compare)</div>
+  </div>
+  <div id="layer-ctrl">
+    <label>Show layers: <span id="lbl-layers">1 - 1</span></label>
+    <input type="range" id="sl-layers" min="1" max="1" value="1">
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// =================================================================
+//  WAVEFORGE - G-Code Wave Texture Editor v3
+//  With: Noise/Ripple patterns, Z-Wave, Flow Mod, Presets,
+//        Ribbon preview, Compare mode
+// =================================================================
+
+// -- State --------------------------------------------------------
+let rawLines = null;
+let parsedEntries = null;
+let totalLayers = 0;
+let lineGroups = [];
+let compareGroups = [];
+let scene, camera, renderer;
+let sph = {theta:0.4, phi:1.1, r:600};
+let tgt = new THREE.Vector3();
+let drag=false, rmb=false, lm={x:0,y:0};
+let sceneCx=0, sceneCy=0, sceneCz=0;
+
+// -- File Upload --------------------------------------------------
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault(); uploadArea.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  document.getElementById('upload-label').innerHTML = '<span class="loaded">Loading...</span>';
+  const reader = new FileReader();
+  reader.onload = e => {
+    rawLines = e.target.result.split('\n');
+    document.getElementById('upload-label').innerHTML =
+      '<span class="loaded">' + file.name + '</span>';
+    document.getElementById('st-file').textContent = file.name;
+
+    // Auto-detect layer height
+    for (const line of rawLines) {
+      const m = line.match(/;HEIGHT:([\d.]+)/);
+      if (m) { document.getElementById('in-height').value = parseFloat(m[1]); break; }
+    }
+
+    parseGcode();
+    document.getElementById('btn-preview').disabled = false;
+    document.getElementById('btn-export').disabled = false;
+    runPreview();
+  };
+  reader.readAsText(file);
+}
+
+// -- G-Code Parser (Pass 1) --------------------------------------
+function parseGcode() {
+  const paramRe = /([XYZEF])([-+]?\d*\.?\d+)/g;
+  let cx=0, cy=0, cz=0, cumDist=0, layerCount=0;
+  const entries = [];
+
+  for (const raw of rawLines) {
+    const line = raw.trim();
+
+    if (line === ';LAYER_CHANGE') {
+      layerCount++;
+      entries.push({type:'pass', text:raw});
+      continue;
+    }
+    if (!line.startsWith('G1') || line.startsWith('G10') || line.startsWith('G11')) {
+      entries.push({type:'pass', text:raw});
+      continue;
+    }
+
+    const params = {};
+    let m;
+    paramRe.lastIndex = 0;
+    while ((m = paramRe.exec(line)) !== null) params[m[1]] = parseFloat(m[2]);
+
+    const hasXY = 'X' in params || 'Y' in params;
+    const hasE  = 'E' in params;
+    const nx = params.X !== undefined ? params.X : cx;
+    const ny = params.Y !== undefined ? params.Y : cy;
+    const nz = params.Z !== undefined ? params.Z : cz;
+
+    if (hasXY && hasE && layerCount >= 1) {
+      const segLen = Math.hypot(nx-cx, ny-cy);
+      const distStart = cumDist;
+      cumDist += segLen;
+      entries.push({
+        type:'print', x0:cx, y0:cy, z0:cz, x1:nx, y1:ny, z1:nz,
+        segLen, distStart, distEnd:cumDist,
+        e: params.E||0, f: params.F !== undefined ? params.F : null, text:raw,
+        layer: layerCount
+      });
+    } else {
+      entries.push({type:'pass', text:raw});
+    }
+    cx=nx; cy=ny; cz=nz;
+  }
+
+  parsedEntries = entries;
+  totalLayers = layerCount;
+
+  const printMoves = entries.filter(e=>e.type==='print');
+  document.getElementById('st-layers').textContent = layerCount;
+  document.getElementById('st-moves').textContent = printMoves.length.toLocaleString();
+  document.getElementById('st-path').textContent = (cumDist/1000).toFixed(1) + 'm';
+}
+
+// -- Wave Pattern Functions ---------------------------------------
+// Each returns -1 to +1 for a normalised position t
+
+function waveSine(t) {
+  return Math.sin(2 * Math.PI * t);
+}
+
+function waveZigzag(t) {
+  const v = ((t % 1) + 1) % 1;
+  if (v < 0.25) return v * 4;
+  if (v < 0.75) return 2 - v * 4;
+  return v * 4 - 4;
+}
+
+function waveSquare(t) {
+  const v = ((t % 1) + 1) % 1;
+  return v < 0.5 ? 1 : -1;
+}
+
+function waveDiamond(t) {
+  const v = ((t % 1) + 1) % 1;
+  return Math.abs(v * 4 - 2) - 1;
+}
+
+function waveDouble(t) {
+  return 0.7 * Math.sin(2 * Math.PI * t) + 0.3 * Math.sin(2 * Math.PI * t * 3);
+}
+
+// Noise: deterministic smooth random wobble using value noise
+function waveNoise(t) {
+  function hash(n) {
+    var x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return (x - Math.floor(x)) * 2 - 1;
+  }
+  var scaled = t * 4;
+  var i = Math.floor(scaled);
+  var f = scaled - i;
+  var s = f * f * (3 - 2 * f); // smoothstep
+  return hash(i) * (1 - s) + hash(i + 1) * s;
+}
+
+// Ripple: sine with amplitude modulation (pulsing beats)
+function waveRipple(t) {
+  return Math.sin(2 * Math.PI * t) * (0.5 + 0.5 * Math.cos(2 * Math.PI * t * 0.3));
+}
+
+function getWaveFn(pattern) {
+  switch(pattern) {
+    case 'zigzag':  return waveZigzag;
+    case 'square':  return waveSquare;
+    case 'diamond': return waveDiamond;
+    case 'double':  return waveDouble;
+    case 'noise':   return waveNoise;
+    case 'ripple':  return waveRipple;
+    default:        return waveSine;
+  }
+}
+
+// -- Parameters ---------------------------------------------------
+function getParams() {
+  var width = parseFloat(document.getElementById('in-width').value) || 4;
+  var height = parseFloat(document.getElementById('in-height').value) || 2.1;
+  var ampPct = parseFloat(document.getElementById('sl-amp').value) / 100;
+  var amplitude = (width * ampPct) / 2;
+  var wavelength = parseFloat(document.getElementById('sl-wl').value);
+  var smooth = parseInt(document.getElementById('sl-smooth').value);
+  var segMM = parseFloat(document.getElementById('sl-res').value);
+  var altEvery = parseInt(document.getElementById('sl-alt').value);
+  var driftDeg = parseFloat(document.getElementById('sl-drift').value);
+  var driftRad = driftDeg * Math.PI / 180;
+  var pattern = document.getElementById('sel-pattern').value;
+  var brimLines = parseInt(document.getElementById('sl-brim').value);
+  var zWavePct = parseFloat(document.getElementById('sl-zwave').value) / 100;
+  var zWaveAmp = height * zWavePct / 2; // as fraction of layer height
+  var flowMod = parseFloat(document.getElementById('sl-flow').value) / 100;
+  return { width, height, amplitude, wavelength, smooth, segMM, ampPct,
+           altEvery, driftDeg, driftRad, pattern, brimLines,
+           zWavePct, zWaveAmp, flowMod };
+}
+
+function smoothDir(entries, idx, radius) {
+  var dx=0, dy=0;
+  for (var off=-radius; off<=radius; off++) {
+    var j = idx+off;
+    if (j>=0 && j<entries.length && entries[j].type==='print') {
+      var e = entries[j];
+      var ddx = e.x1-e.x0, ddy = e.y1-e.y0;
+      var len = Math.hypot(ddx, ddy);
+      if (len > 0.01) { dx += ddx/len; dy += ddy/len; }
+    }
+  }
+  var len = Math.hypot(dx, dy);
+  return len > 0.001 ? [dx/len, dy/len] : [0, 1];
+}
+
+// -- Phase computation --------------------------------------------
+function computePhase(layer, altEvery, driftRad) {
+  var groupPhase = Math.PI * Math.floor((layer - 1) / altEvery);
+  var driftPhase = driftRad * (layer - 1);
+  return groupPhase + driftPhase;
+}
+
+// -- Brim Generator -----------------------------------------------
+// Brim rings are OUTSIDE the model only, and follow the current wave settings
+function generateBrim(entries, params) {
+  var width = params.width;
+  var brimLines = params.brimLines;
+  if (brimLines <= 0) return {gcode: [], preview: []};
+
+  // Collect ONLY the model wall path from layer 1 (skip the skirt)
+  // Uses ;TYPE: markers from slicer: ;TYPE:Skirt marks skirt, ;TYPE:Outer wall marks model
+  var isSkirtZone = false;
+  var pts = [];
+  var firstZ = null;
+  var firstF = null;
+  var totalE = 0;
+  var totalLen = 0;
+
+  for (var ei=0; ei<entries.length; ei++) {
+    var e = entries[ei];
+
+    // Detect slicer type markers in passthrough lines
+    if (e.type === 'pass') {
+      var txt = e.text.trim();
+      if (txt === ';TYPE:Skirt') { isSkirtZone = true; }
+      else if (txt.indexOf(';TYPE:') === 0 && txt !== ';TYPE:Skirt') { isSkirtZone = false; }
+    }
+
+    if (e.type !== 'print') continue;
+    if (e.layer !== 1) { if (pts.length > 0) break; continue; }
+
+    // Skip skirt moves
+    if (isSkirtZone) continue;
+
+    // Collect model wall points
+    if (pts.length === 0) {
+      pts.push([e.x0, e.y0]);
+      firstZ = e.z0;
+    }
+    pts.push([e.x1, e.y1]);
+    if (e.f !== null && firstF === null) firstF = e.f;
+    totalE += e.e;
+    totalLen += e.segLen;
+  }
+
+  if (pts.length < 3) return {gcode: [], preview: []};
+  var ePerMM = totalLen > 0 ? totalE / totalLen : 0.01;
+  var brimZ = firstZ || 2.1;
+  var feedStr = firstF ? ' F' + firstF.toFixed(0) : '';
+
+  // Offset a polygon path outward by a distance
+  function offsetPath(path, dist) {
+    var n = path.length;
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var prev = path[(i - 1 + n) % n];
+      var curr = path[i];
+      var next = path[(i + 1) % n];
+
+      var dx1 = curr[0]-prev[0], dy1 = curr[1]-prev[1];
+      var len1 = Math.hypot(dx1,dy1);
+      if (len1 < 0.001) { dx1=0; dy1=1; len1=1; }
+      var nx1 = dy1/len1, ny1 = -dx1/len1;
+
+      var dx2 = next[0]-curr[0], dy2 = next[1]-curr[1];
+      var len2 = Math.hypot(dx2,dy2);
+      if (len2 < 0.001) { dx2=0; dy2=1; len2=1; }
+      var nx2 = dy2/len2, ny2 = -dx2/len2;
+
+      var nx = (nx1+nx2)/2, ny = (ny1+ny2)/2;
+      var nl = Math.hypot(nx,ny);
+      if (nl < 0.001) { nx=nx1; ny=ny1; nl=1; }
+      nx /= nl; ny /= nl;
+
+      out.push([curr[0] + nx*dist, curr[1] + ny*dist]);
+    }
+    return out;
+  }
+
+  var gcodeLines = [];
+  var previewLayers = [];
+
+  // Generate each brim ring - plain offset, no wave distortion
+  // Outermost first, closest to part prints last
+  for (var b = brimLines; b >= 1; b--) {
+    var offset = b * width;
+    var ring = offsetPath(pts, offset);
+    if (ring.length < 2) continue;
+
+    // Generate G-code
+    gcodeLines.push('; BRIM LINE ' + b);
+    gcodeLines.push('G1 X' + ring[0][0].toFixed(3) + ' Y' + ring[0][1].toFixed(3) + ' Z' + brimZ.toFixed(3) + feedStr);
+    for (var i = 1; i < ring.length; i++) {
+      var segLen = Math.hypot(ring[i][0]-ring[i-1][0], ring[i][1]-ring[i-1][1]);
+      var subE = ePerMM * segLen;
+      gcodeLines.push('G1 X' + ring[i][0].toFixed(3) + ' Y' + ring[i][1].toFixed(3) + ' Z' + brimZ.toFixed(3) + ' E' + subE.toFixed(5));
+    }
+    // Close the loop
+    var closeSeg = Math.hypot(ring[0][0]-ring[ring.length-1][0], ring[0][1]-ring[ring.length-1][1]);
+    if (closeSeg > 0.5) {
+      var closeE = ePerMM * closeSeg;
+      gcodeLines.push('G1 X' + ring[0][0].toFixed(3) + ' Y' + ring[0][1].toFixed(3) + ' Z' + brimZ.toFixed(3) + ' E' + closeE.toFixed(5));
+    }
+
+    // Preview: plain brim ring
+    previewLayers.push(ring.map(function(p) { return [p[0], p[1], brimZ]; }));
+  }
+
+  return {gcode: gcodeLines, preview: previewLayers};
+}
+
+// -- Wave Processor -----------------------------------------------
+function processWave(entries, params, forExport) {
+  var amplitude = params.amplitude;
+  var wavelength = params.wavelength;
+  var height = params.height;
+  var smooth = params.smooth;
+  var segMM = params.segMM;
+  var altEvery = params.altEvery;
+  var driftRad = params.driftRad;
+  var pattern = params.pattern;
+  var zWaveAmp = params.zWaveAmp;
+  var flowMod = params.flowMod;
+  var MIN_MOVE = 1.0;
+  var waveFn = getWaveFn(pattern);
+
+  if (forExport) {
+    var out = [];
+    var brim = generateBrim(entries, params);
+    var brimInserted = false;
+    for (var i=0; i<entries.length; i++) {
+      if (!brimInserted && entries[i].type === 'print') {
+        brimInserted = true;
+        if (brim.gcode.length > 0) {
+          out.push('; -- WAVEFORGE BRIM START --');
+          for (var bi=0; bi<brim.gcode.length; bi++) out.push(brim.gcode[bi]);
+          out.push('; -- WAVEFORGE BRIM END --');
+        }
+      }
+      var e = entries[i];
+      if (e.type !== 'print' || e.segLen < MIN_MOVE) {
+        out.push(e.text);
+        continue;
+      }
+      var dir = smoothDir(entries, i, smooth);
+      var perpX = -dir[1], perpY = dir[0];
+      var ePerMM = e.segLen > 0 ? e.e / e.segLen : 0;
+      var fStr = e.f !== null ? ' F' + e.f.toFixed(0) : '';
+      var dx=e.x1-e.x0, dy=e.y1-e.y0, dz=e.z1-e.z0;
+      var n = Math.max(2, Math.ceil(e.segLen / segMM));
+      var px=e.x0, py=e.y0;
+
+      var phase = computePhase(e.layer, altEvery, driftRad);
+
+      for (var j=1; j<=n; j++) {
+        var t = j/n;
+        var xi=e.x0+t*dx, yi=e.y0+t*dy, zi=e.z0+t*dz;
+        var cumD = e.distStart + t*e.segLen;
+        var waveT = cumD / wavelength + phase / (2 * Math.PI);
+        var waveVal = waveFn(waveT);
+        var wave = amplitude * waveVal;
+        var wx = xi + wave*perpX, wy = yi + wave*perpY;
+
+        // Z-Wave: add vertical undulation (quarter-wave offset so Z peaks between XY peaks)
+        var zOff = 0;
+        if (zWaveAmp > 0) {
+          zOff = zWaveAmp * waveFn(waveT + 0.25);
+        }
+        var wz = zi + zOff;
+
+        // Flow modulation: vary E based on wave position
+        var subLen = Math.hypot(wx-px, wy-py);
+        var flowFactor = 1;
+        if (flowMod > 0) {
+          // At wave peaks (waveVal near +/-1), increase flow; at zero crossings, decrease
+          flowFactor = 1 + flowMod * (Math.abs(waveVal) - 0.5);
+        }
+        var subE = ePerMM * subLen * flowFactor;
+
+        var fp = j===1 ? fStr : '';
+        out.push('G1' + fp + ' X' + wx.toFixed(3) + ' Y' + wy.toFixed(3) + ' Z' + wz.toFixed(3) + ' E' + subE.toFixed(5));
+        px=wx; py=wy;
+      }
+    }
+    return out;
+  }
+
+  // Preview mode
+  var previewSeg = Math.max(segMM, 1.5);
+  var layers = [[]];
+  var layerIdx = 0;
+
+  for (var i=0; i<entries.length; i++) {
+    var e = entries[i];
+    if (e.type === 'pass') {
+      if (e.text.trim() === ';LAYER_CHANGE') {
+        layerIdx++;
+        layers.push([]);
+      }
+      continue;
+    }
+    if (e.segLen < MIN_MOVE) continue;
+
+    var dir = smoothDir(entries, i, smooth);
+    var perpX = -dir[1], perpY = dir[0];
+    var dx=e.x1-e.x0, dy=e.y1-e.y0, dz=e.z1-e.z0;
+    var n = Math.max(2, Math.ceil(e.segLen / previewSeg));
+
+    if (!layers[layerIdx]) layers[layerIdx] = [];
+    var lyr = layers[layerIdx];
+    if (lyr.length === 0) lyr.push([e.x0, e.y0, e.z0]);
+
+    var phase = computePhase(e.layer, altEvery, driftRad);
+
+    for (var j=1; j<=n; j++) {
+      var t = j/n;
+      var xi=e.x0+t*dx, yi=e.y0+t*dy, zi=e.z0+t*dz;
+      var cumD = e.distStart + t*e.segLen;
+      var waveT = cumD / wavelength + phase / (2 * Math.PI);
+      var waveVal = waveFn(waveT);
+      var wave = amplitude * waveVal;
+
+      // Z-Wave preview
+      var zOff = 0;
+      if (zWaveAmp > 0) {
+        zOff = zWaveAmp * waveFn(waveT + 0.25);
+      }
+
+      lyr.push([xi + wave*perpX, yi + wave*perpY, zi + zOff]);
+    }
+  }
+  var result = layers.filter(function(l) { return l.length > 2; });
+
+  // Add brim
+  var brim = generateBrim(entries, params);
+  if (brim.preview.length > 0) {
+    result = brim.preview.concat(result);
+  }
+
+  return result;
+}
+
+// -- Generate original (non-wavy) preview for compare mode --------
+function processOriginal(entries, params) {
+  var previewSeg = Math.max(params.segMM, 1.5);
+  var layers = [[]];
+  var layerIdx = 0;
+
+  for (var i=0; i<entries.length; i++) {
+    var e = entries[i];
+    if (e.type === 'pass') {
+      if (e.text.trim() === ';LAYER_CHANGE') {
+        layerIdx++;
+        layers.push([]);
+      }
+      continue;
+    }
+    if (e.segLen < 1.0) continue;
+
+    if (!layers[layerIdx]) layers[layerIdx] = [];
+    var lyr = layers[layerIdx];
+    if (lyr.length === 0) lyr.push([e.x0, e.y0, e.z0]);
+
+    var dx=e.x1-e.x0, dy=e.y1-e.y0, dz=e.z1-e.z0;
+    var n = Math.max(2, Math.ceil(e.segLen / previewSeg));
+    for (var j=1; j<=n; j++) {
+      var t = j/n;
+      lyr.push([e.x0+t*dx, e.y0+t*dy, e.z0+t*dz]);
+    }
+  }
+  return layers.filter(function(l) { return l.length > 2; });
+}
+
+// -- 3D Renderer --------------------------------------------------
+function initThree() {
+  var vp = document.getElementById('viewport');
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d1117);
+
+  camera = new THREE.PerspectiveCamera(45, vp.clientWidth/vp.clientHeight, 0.1, 50000);
+  renderer = new THREE.WebGLRenderer({canvas:document.getElementById('c'), antialias:true});
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(vp.clientWidth, vp.clientHeight);
+
+  // Lights for ribbon rendering
+  var ambLight = new THREE.AmbientLight(0x404060, 0.6);
+  scene.add(ambLight);
+  var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(200, 500, 300);
+  scene.add(dirLight);
+  var dirLight2 = new THREE.DirectionalLight(0x6688cc, 0.3);
+  dirLight2.position.set(-200, 200, -100);
+  scene.add(dirLight2);
+
+  var grid = new THREE.GridHelper(800, 20, 0x1f2937, 0x161b22);
+  grid.position.y = -2;
+  scene.add(grid);
+
+  window.addEventListener('resize', function() {
+    camera.aspect = vp.clientWidth/vp.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(vp.clientWidth, vp.clientHeight);
+  });
+
+  // Mouse controls
+  var cnv = document.getElementById('c');
+  cnv.addEventListener('mousedown', function(e) {
+    drag=true; rmb=e.button===2; lm={x:e.clientX,y:e.clientY};
+  });
+  cnv.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+  window.addEventListener('mouseup', function() { drag=false; });
+  window.addEventListener('mousemove', function(e) {
+    if(!drag) return;
+    var dx=e.clientX-lm.x, dy=e.clientY-lm.y;
+    lm={x:e.clientX,y:e.clientY};
+    if(!rmb) {
+      sph.theta -= dx*0.005;
+      sph.phi = Math.max(0.05, Math.min(Math.PI-0.05, sph.phi+dy*0.005));
+    } else {
+      var r = new THREE.Vector3(Math.sin(sph.theta+Math.PI/2),0,Math.cos(sph.theta+Math.PI/2));
+      tgt.addScaledVector(r, -dx*sph.r*0.001);
+      tgt.y += dy*sph.r*0.001;
+    }
+  });
+  cnv.addEventListener('wheel', function(e) {
+    sph.r = Math.max(10, sph.r + e.deltaY*0.5);
+  }, {passive:true});
+
+  // Touch
+  var t0d=0;
+  cnv.addEventListener('touchstart', function(e) {
+    if(e.touches.length===1){drag=true;lm={x:e.touches[0].clientX,y:e.touches[0].clientY};}
+    if(e.touches.length===2)t0d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    e.preventDefault();
+  },{passive:false});
+  cnv.addEventListener('touchmove', function(e) {
+    if(e.touches.length===1&&drag){var dx=e.touches[0].clientX-lm.x,dy=e.touches[0].clientY-lm.y;lm={x:e.touches[0].clientX,y:e.touches[0].clientY};sph.theta-=dx*0.005;sph.phi=Math.max(0.05,Math.min(Math.PI-0.05,sph.phi+dy*0.005));}
+    if(e.touches.length===2){var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);sph.r=Math.max(10,sph.r-(d-t0d)*1.5);t0d=d;}
+    e.preventDefault();
+  },{passive:false});
+  cnv.addEventListener('touchend', function(){drag=false;});
+
+  animate();
+}
+
+// -- Create ribbon mesh for a layer path --------------------------
+function createRibbon(pts, ribbonW, color, cx, cy, cz) {
+  if (pts.length < 2) return null;
+  var positions = [];
+  var indices = [];
+
+  for (var i = 0; i < pts.length; i++) {
+    // Direction vector
+    var dirX, dirY;
+    if (i < pts.length - 1) {
+      dirX = pts[i+1][0] - pts[i][0];
+      dirY = pts[i+1][1] - pts[i][1];
+    } else {
+      dirX = pts[i][0] - pts[i-1][0];
+      dirY = pts[i][1] - pts[i-1][1];
+    }
+    var dl = Math.hypot(dirX, dirY);
+    if (dl < 0.001) { dirX = 1; dirY = 0; dl = 1; }
+    // Perpendicular in XY plane
+    var nx = -dirY/dl * ribbonW/2;
+    var ny = dirX/dl * ribbonW/2;
+
+    // Transform to Three.js coords: X=gcodeX, Y=gcodeZ, Z=-gcodeY
+    var px = pts[i][0] - cx;
+    var py = pts[i][2] - cz;
+    var pzBase = -(pts[i][1] - cy);
+    // Offset in gcode XY -> Three.js XZ
+    var nxT = nx;
+    var nzT = -ny;
+
+    positions.push(px + nxT, py, pzBase + nzT); // left vertex
+    positions.push(px - nxT, py, pzBase - nzT); // right vertex
+
+    if (i > 0) {
+      var base = (i - 1) * 2;
+      indices.push(base, base+2, base+1);
+      indices.push(base+1, base+2, base+3);
+    }
+  }
+
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+
+  var mat = new THREE.MeshPhongMaterial({
+    color: color,
+    side: THREE.DoubleSide,
+    shininess: 60,
+    specular: 0x444444,
+    flatShading: false
+  });
+
+  return new THREE.Mesh(geo, mat);
+}
+
+// -- Build 3D Scene -----------------------------------------------
+function buildScene(layers, origLayers) {
+  lineGroups.forEach(function(g) { scene.remove(g); });
+  lineGroups = [];
+  compareGroups.forEach(function(g) { scene.remove(g); });
+  compareGroups = [];
+
+  if (!layers.length) return;
+
+  var mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity,mnz=Infinity,mxz=-Infinity;
+  for (var li=0; li<layers.length; li++) {
+    var lyr = layers[li];
+    for (var pi=0; pi<lyr.length; pi++) {
+      var p = lyr[pi];
+      if(p[0]<mnx)mnx=p[0]; if(p[0]>mxx)mxx=p[0];
+      if(p[1]<mny)mny=p[1]; if(p[1]>mxy)mxy=p[1];
+      if(p[2]<mnz)mnz=p[2]; if(p[2]>mxz)mxz=p[2];
+    }
+  }
+  var cx=(mnx+mxx)/2, cy=(mny+mxy)/2, cz=(mnz+mxz)/2;
+  sceneCx=cx; sceneCy=cy; sceneCz=cz;
+  var span = Math.max(mxx-mnx, mxy-mny, mxz-mnz);
+  sph.r = span * 1.2;
+  tgt.set(0, 0, 0);
+
+  var par = getParams();
+  var altEvery = par.altEvery;
+  var brimCount = par.brimLines;
+  var useRibbon = document.getElementById('chk-ribbon').checked;
+  var ribbonW = Math.max(par.width * 0.8, 2.5); // visual ribbon width
+
+  // Colours: solid render = single colour, wireframe = phase groups
+  var COL_SOLID = 0xd4956b;  // warm terracotta/clay
+  var COL_BRIM_SOLID = 0x8fbc8f; // muted green for brim
+  var COL_A = 0x60a5fa, COL_B = 0xfb923c, COL_BRIM = 0x34d399;
+
+  layers.forEach(function(pts, li) {
+    if (pts.length < 2) return;
+    var isBrim = li < brimCount;
+
+    var obj;
+    if (useRibbon) {
+      var col = isBrim ? COL_BRIM_SOLID : COL_SOLID;
+      obj = createRibbon(pts, ribbonW, col, cx, cy, cz);
+    }
+    if (!obj) {
+      // Wireframe fallback with phase colouring
+      var col2;
+      if (isBrim) {
+        col2 = COL_BRIM;
+      } else {
+        var printLayer = li - brimCount;
+        var group = Math.floor(printLayer / altEvery);
+        col2 = group % 2 === 0 ? COL_A : COL_B;
+      }
+      var v = new Float32Array(pts.length * 3);
+      for (var i=0; i<pts.length; i++) {
+        v[i*3]   = pts[i][0] - cx;
+        v[i*3+1] = pts[i][2] - cz;
+        v[i*3+2] = -(pts[i][1] - cy);
+      }
+      var geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
+      var mat = new THREE.LineBasicMaterial({color: col2});
+      obj = new THREE.Line(geo, mat);
+    }
+    scene.add(obj);
+    lineGroups.push(obj);
+  });
+
+  // Compare mode: show original as thin semi-transparent lines
+  if (origLayers && origLayers.length > 0) {
+    origLayers.forEach(function(pts) {
+      if (pts.length < 2) return;
+      var v = new Float32Array(pts.length * 3);
+      for (var i=0; i<pts.length; i++) {
+        v[i*3]   = pts[i][0] - cx;
+        v[i*3+1] = pts[i][2] - cz;
+        v[i*3+2] = -(pts[i][1] - cy);
+      }
+      var geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
+      var mat = new THREE.LineBasicMaterial({color: 0xffffff, transparent:true, opacity:0.15});
+      var line = new THREE.Line(geo, mat);
+      scene.add(line);
+      compareGroups.push(line);
+    });
+  }
+
+  var sl = document.getElementById('sl-layers');
+  sl.max = layers.length;
+  sl.value = layers.length;
+  document.getElementById('lbl-layers').textContent = '1 - ' + layers.length;
+  updateLayerVis();
+}
+
+function updateLayerVis() {
+  var n = parseInt(document.getElementById('sl-layers').value);
+  lineGroups.forEach(function(g,i) { g.visible = i < n; });
+  compareGroups.forEach(function(g,i) { g.visible = i < n; });
+  document.getElementById('lbl-layers').textContent = '1 - ' + n;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  var x = sph.r*Math.sin(sph.phi)*Math.sin(sph.theta);
+  var y = sph.r*Math.cos(sph.phi);
+  var z = sph.r*Math.sin(sph.phi)*Math.cos(sph.theta);
+  camera.position.set(tgt.x+x, tgt.y+y, tgt.z+z);
+  camera.lookAt(tgt);
+  renderer.render(scene, camera);
+}
+
+// -- Preview ------------------------------------------------------
+function runPreview() {
+  if (!parsedEntries) return;
+
+  document.getElementById('processing').style.display = 'block';
+  document.getElementById('viewport-overlay').classList.add('hidden');
+  document.getElementById('legend').style.display = 'block';
+  document.getElementById('layer-ctrl').style.display = 'block';
+
+  setTimeout(function() {
+    var params = getParams();
+    var layers = processWave(parsedEntries, params, false);
+
+    var origLayers = null;
+    if (document.getElementById('chk-compare').checked) {
+      origLayers = processOriginal(parsedEntries, params);
+    }
+
+    buildScene(layers, origLayers);
+    document.getElementById('processing').style.display = 'none';
+  }, 50);
+}
+
+// -- Export -------------------------------------------------------
+function exportGcode() {
+  if (!parsedEntries) return;
+
+  document.getElementById('btn-export').disabled = true;
+  document.getElementById('btn-export').textContent = 'Processing...';
+
+  setTimeout(function() {
+    var params = getParams();
+    var lines = processWave(parsedEntries, params, true);
+    var blob = new Blob([lines.join('\n')], {type:'text/plain'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var origName = document.getElementById('st-file').textContent.replace(/\.gcode$/i, '');
+    a.href = url;
+    a.download = origName + '-wavy.gcode';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    document.getElementById('btn-export').disabled = false;
+    document.getElementById('btn-export').textContent = 'Download Wavy G-Code';
+  }, 50);
+}
+
+// -- Presets ------------------------------------------------------
+var PRESETS = {
+  'flowing-fabric': {
+    pattern:'sine', amp:75, wl:30, alt:2, drift:15, smooth:8,
+    zwave:0, flow:0, res:1.0
+  },
+  'dragon-scale': {
+    pattern:'diamond', amp:120, wl:18, alt:1, drift:0, smooth:3,
+    zwave:50, flow:40, res:0.8
+  },
+  'barber-pole': {
+    pattern:'sine', amp:60, wl:25, alt:1, drift:180, smooth:5,
+    zwave:0, flow:0, res:1.0
+  },
+  'coral-reef': {
+    pattern:'double', amp:150, wl:15, alt:3, drift:45, smooth:2,
+    zwave:30, flow:60, res:0.8
+  },
+  'brickwork': {
+    pattern:'square', amp:80, wl:40, alt:2, drift:0, smooth:1,
+    zwave:0, flow:0, res:1.0
+  },
+  'terracotta': {
+    pattern:'noise', amp:100, wl:20, alt:3, drift:10, smooth:6,
+    zwave:20, flow:30, res:0.8
+  }
+};
+
+function applyPreset(name) {
+  var p = PRESETS[name];
+  if (!p) return;
+
+  document.getElementById('sel-pattern').value = p.pattern;
+  document.getElementById('sl-amp').value = p.amp;
+  document.getElementById('sl-wl').value = p.wl;
+  document.getElementById('sl-alt').value = p.alt;
+  document.getElementById('sl-drift').value = p.drift;
+  document.getElementById('sl-smooth').value = p.smooth;
+  document.getElementById('sl-zwave').value = p.zwave;
+  document.getElementById('sl-flow').value = p.flow;
+  document.getElementById('sl-res').value = p.res;
+
+  updateLabels();
+  if (parsedEntries) runPreview();
+}
+
+// -- UI Bindings --------------------------------------------------
+function updateLabels() {
+  var p = getParams();
+  document.getElementById('lbl-amp').textContent = Math.round(p.ampPct*100) + '%';
+  document.getElementById('lbl-amp-mm').textContent = '+/-' + p.amplitude.toFixed(2) + 'mm';
+  document.getElementById('lbl-wl').textContent = p.wavelength + 'mm';
+  document.getElementById('lbl-alt').textContent = p.altEvery === 1 ? '1 layer' : p.altEvery + ' layers';
+  document.getElementById('lbl-drift').textContent = p.driftDeg + ' deg/layer';
+  document.getElementById('lbl-smooth').textContent = p.smooth;
+  document.getElementById('lbl-res').textContent = p.segMM.toFixed(1) + 'mm';
+  document.getElementById('lbl-brim').textContent = p.brimLines;
+  document.getElementById('lbl-zwave').textContent = Math.round(p.zWavePct*100) + '%';
+  document.getElementById('lbl-zwave-mm').textContent = p.zWaveAmp.toFixed(2) + 'mm';
+  document.getElementById('lbl-flow').textContent = Math.round(p.flowMod*100) + '%';
+  document.getElementById('lbl-pattern').textContent =
+    document.getElementById('sel-pattern').options[document.getElementById('sel-pattern').selectedIndex].text.split('-')[0].trim();
+}
+
+['sl-amp','sl-wl','sl-alt','sl-drift','sl-smooth','sl-res','sl-brim','sl-zwave','sl-flow','in-width','in-height'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', updateLabels);
+});
+document.getElementById('sel-pattern').addEventListener('change', updateLabels);
+document.getElementById('sl-layers').addEventListener('input', updateLayerVis);
+
+// Auto-preview on slider release or dropdown/checkbox change
+['sl-amp','sl-wl','sl-alt','sl-drift','sl-smooth','sl-res','sl-brim','sl-zwave','sl-flow'].forEach(function(id) {
+  document.getElementById(id).addEventListener('change', function() {
+    if (parsedEntries) runPreview();
+  });
+});
+document.getElementById('sel-pattern').addEventListener('change', function() {
+  if (parsedEntries) runPreview();
+});
+document.getElementById('chk-compare').addEventListener('change', function() {
+  if (parsedEntries) runPreview();
+});
+document.getElementById('chk-ribbon').addEventListener('change', function() {
+  if (parsedEntries) runPreview();
+});
+
+// -- Init ---------------------------------------------------------
+updateLabels();
+initThree();
+
+</script>
+</body>
+</html>
