@@ -6,149 +6,432 @@
 <title>WaveForge - G-Code Wave Editor v3</title>
 <style>
 :root {
-  --bg: #0d1117; --bg2: #161b22; --bg3: #1c2333;
-  --border: #30363d; --text: #e6edf3; --text2: #8b949e;
-  --accent: #f97316; --accent2: #fb923c; --blue: #60a5fa;
-  --green: #34d399; --red: #f87171;
+  --bg: #1a1a2e; --bg2: #22223a; --bg3: #2a2a45;
+  --border: #3a3a55; --text: #f0f0f5; --text2: #9999b0;
+  --accent: #ff8c42; --accent2: #ffaa5a; --blue: #6eb5ff;
+  --green: #4ade80; --red: #ff6b6b;
+  --card: #262640; --card-border: #3d3d5c;
 }
+
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:'Segoe UI',Arial,sans-serif; overflow:hidden; height:100vh; }
+
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  overflow:hidden;
+  height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
 a { color:var(--accent); }
 
-/* Layout */
+/* ===== LAYOUT ===== */
 #app { display:flex; height:100vh; }
-#sidebar { width:340px; min-width:340px; background:var(--bg2); border-right:1px solid var(--border);
-  display:flex; flex-direction:column; overflow-y:auto; }
-#viewport { flex:1; position:relative; }
+#sidebar {
+  width:320px;
+  min-width:320px;
+  background:var(--bg2);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+}
+#viewport { flex:1; position:relative; background:var(--bg); }
 
-/* Sidebar sections */
-.section { padding:16px 18px; border-bottom:1px solid var(--border); }
-.section h3 { font-size:0.75rem; text-transform:uppercase; letter-spacing:1.5px;
-  color:var(--accent); margin-bottom:12px; font-weight:600; }
+/* Scrollbar */
+#sidebar::-webkit-scrollbar { width:6px; }
+#sidebar::-webkit-scrollbar-track { background:transparent; }
+#sidebar::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+#sidebar::-webkit-scrollbar-thumb:hover { background:var(--accent); }
 
-/* Logo */
-#logo { padding:20px 18px; border-bottom:1px solid var(--border); text-align:center; }
-#logo h1 { font-size:1.3rem; font-weight:700; letter-spacing:2px; }
-#logo h1 span { color:var(--accent); }
-#logo p { font-size:0.68rem; color:var(--text2); margin-top:4px; }
+/* ===== SECTIONS ===== */
+.section {
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+}
 
-/* Upload area */
+.section h3 {
+  font-size:0.8rem;
+  font-weight:700;
+  color:var(--accent);
+  margin-bottom:12px;
+  letter-spacing:0.5px;
+}
+
+/* ===== LOGO ===== */
+#logo {
+  padding:16px;
+  background:linear-gradient(135deg, #2a1a3e 0%, #1e2a48 100%);
+  border-bottom:2px solid var(--accent);
+  text-align:center;
+}
+
+#logo h1 {
+  font-size:1.5rem;
+  font-weight:800;
+  letter-spacing:4px;
+  color:#fff;
+}
+
+#logo h1 span {
+  color:var(--accent);
+}
+
+#logo p {
+  font-size:0.65rem;
+  color:var(--text2);
+  margin-top:4px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+}
+
+/* ===== UPLOAD ===== */
 #upload-area {
-  border:2px dashed var(--border); border-radius:10px;
-  padding:24px 16px; text-align:center; cursor:pointer;
-  transition: border-color 0.2s, background 0.2s;
+  border:2px dashed var(--border);
+  border-radius:8px;
+  padding:20px 16px;
+  text-align:center;
+  cursor:pointer;
+  transition:all 0.2s;
+  background:var(--card);
 }
+
 #upload-area:hover, #upload-area.drag-over {
-  border-color:var(--accent); background:rgba(249,115,22,0.05);
+  border-color:var(--accent);
+  background:rgba(255,140,66,0.08);
 }
-#upload-area svg { width:36px; height:36px; margin-bottom:8px; opacity:0.5; }
-#upload-area .label { font-size:0.82rem; color:var(--text2); }
+
+#upload-area svg { width:32px; height:32px; margin-bottom:6px; opacity:0.5; }
+#upload-area:hover svg { opacity:0.8; }
+#upload-area .label { font-size:0.78rem; color:var(--text2); }
 #upload-area .loaded { color:var(--green); font-weight:600; }
 #file-input { display:none; }
 
-/* Controls */
+/* ===== CONTROLS ===== */
 .ctrl { margin-bottom:14px; }
-.ctrl label { display:flex; justify-content:space-between; font-size:0.73rem; color:var(--text2); margin-bottom:4px; }
-.ctrl label .val { color:var(--text); font-weight:600; font-family:monospace; }
-.ctrl input[type=range] { width:100%; accent-color:var(--accent); height:6px; cursor:pointer; }
-.ctrl .hint { font-size:0.62rem; color:var(--text2); margin-top:2px; opacity:0.7; }
 
-/* Select dropdown */
-.ctrl select {
-  width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px;
-  padding:7px 10px; color:var(--text); font-size:0.82rem; cursor:pointer;
-  appearance:none; -webkit-appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 10px center;
+.ctrl label {
+  display:flex;
+  justify-content:space-between;
+  font-size:0.75rem;
+  color:var(--text2);
+  margin-bottom:5px;
+  font-weight:600;
 }
+
+.ctrl label .val {
+  color:var(--text);
+  font-weight:700;
+  font-family:'Consolas','Courier New',monospace;
+  font-size:0.72rem;
+}
+
+/* ===== SLIDERS — Bambu-style flat design ===== */
+.ctrl input[type=range] {
+  width:100%;
+  height:4px;
+  cursor:pointer;
+  -webkit-appearance:none;
+  appearance:none;
+  background:var(--border);
+  border-radius:2px;
+  outline:none;
+  margin:8px 0 4px;
+}
+
+.ctrl input[type=range]::-webkit-slider-runnable-track {
+  height:4px;
+  border-radius:2px;
+  background:inherit;
+}
+
+.ctrl input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:pointer;
+  margin-top:-7px;
+  border:3px solid var(--bg2);
+  box-shadow:0 1px 4px rgba(0,0,0,0.4);
+}
+
+.ctrl input[type=range]:hover::-webkit-slider-thumb {
+  background:var(--accent2);
+}
+
+.ctrl input[type=range]::-moz-range-track {
+  height:4px;
+  border-radius:2px;
+  background:var(--border);
+  border:none;
+}
+
+.ctrl input[type=range]::-moz-range-progress {
+  background:var(--accent);
+  border-radius:2px;
+  height:4px;
+}
+
+.ctrl input[type=range]::-moz-range-thumb {
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:pointer;
+  border:3px solid var(--bg2);
+  box-shadow:0 1px 4px rgba(0,0,0,0.4);
+}
+
+.ctrl .hint {
+  font-size:0.62rem;
+  color:var(--text2);
+  margin-top:2px;
+  opacity:0.7;
+}
+
+/* ===== DROPDOWN ===== */
+.ctrl select {
+  width:100%;
+  background:var(--card);
+  border:1px solid var(--card-border);
+  border-radius:6px;
+  padding:8px 32px 8px 10px;
+  color:var(--text);
+  font-size:0.8rem;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23ff8c42'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+}
+
 .ctrl select:focus { outline:none; border-color:var(--accent); }
 
-/* Number inputs */
+/* ===== NUMBER INPUTS ===== */
 .num-row { display:flex; gap:10px; margin-bottom:14px; }
 .num-field { flex:1; }
-.num-field label { display:block; font-size:0.7rem; color:var(--text2); margin-bottom:4px; }
-.num-field input {
-  width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px;
-  padding:6px 10px; color:var(--text); font-size:0.82rem; font-family:monospace;
+.num-field label {
+  display:block;
+  font-size:0.68rem;
+  color:var(--text2);
+  margin-bottom:4px;
+  font-weight:600;
 }
-.num-field input:focus { outline:none; border-color:var(--accent); }
-.num-field .unit { font-size:0.62rem; color:var(--text2); margin-top:2px; }
 
-/* Buttons */
-.btn {
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  width:100%; padding:10px 16px; border:none; border-radius:8px;
-  font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.15s;
+.num-field input {
+  width:100%;
+  background:var(--card);
+  border:1px solid var(--card-border);
+  border-radius:6px;
+  padding:7px 10px;
+  color:var(--text);
+  font-size:0.82rem;
+  font-family:'Consolas','Courier New',monospace;
 }
-.btn-primary { background:var(--accent); color:#fff; }
+
+.num-field input:focus { outline:none; border-color:var(--accent); }
+.num-field .unit { font-size:0.6rem; color:var(--text2); margin-top:2px; }
+
+/* ===== BUTTONS ===== */
+.btn {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:100%;
+  padding:10px 16px;
+  border:none;
+  border-radius:6px;
+  font-size:0.82rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+
+.btn-primary {
+  background:var(--accent);
+  color:#fff;
+}
+
 .btn-primary:hover { background:var(--accent2); }
 .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
-.btn-secondary { background:var(--bg3); color:var(--text); border:1px solid var(--border); }
+
+.btn-secondary {
+  background:var(--card);
+  color:var(--text);
+  border:1px solid var(--card-border);
+}
+
 .btn-secondary:hover { border-color:var(--accent); }
 .btn-group { display:flex; gap:8px; }
 
-/* Preset buttons */
-.preset-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.preset-btn {
-  background:var(--bg3); border:1px solid var(--border); border-radius:6px;
-  padding:8px 6px; color:var(--text); font-size:0.7rem; cursor:pointer;
-  transition:all 0.15s; text-align:center; line-height:1.3;
+/* ===== PRESETS — 3-col grid with coloured cards ===== */
+.preset-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:6px;
 }
-.preset-btn:hover { border-color:var(--accent); background:rgba(249,115,22,0.08); }
-.preset-btn .preset-icon { font-size:1.1rem; display:block; margin-bottom:3px; }
-.preset-btn .preset-name { font-weight:600; font-size:0.68rem; }
 
-/* Compare toggle */
-.toggle-row { display:flex; align-items:center; gap:10px; margin-top:10px; }
+.preset-btn {
+  background:var(--card);
+  border:1px solid var(--card-border);
+  border-radius:8px;
+  padding:10px 4px 8px;
+  color:var(--text);
+  cursor:pointer;
+  transition:all 0.15s;
+  text-align:center;
+  line-height:1.2;
+}
+
+.preset-btn:hover {
+  border-color:var(--accent);
+  background:rgba(255,140,66,0.12);
+  transform:translateY(-1px);
+}
+
+.preset-btn .preset-icon {
+  font-size:1.2rem;
+  display:block;
+  margin-bottom:4px;
+  color:var(--accent);
+}
+
+.preset-btn .preset-name {
+  font-weight:600;
+  font-size:0.6rem;
+  text-transform:uppercase;
+  letter-spacing:0.3px;
+}
+
+/* ===== TOGGLES ===== */
+.toggle-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:10px;
+}
+
 .toggle-row label { font-size:0.73rem; color:var(--text2); cursor:pointer; }
 .toggle-row input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; }
 
-/* Status bar */
+/* ===== STATUS BAR ===== */
 #status {
-  padding:10px 18px; background:var(--bg); border-top:1px solid var(--border);
-  font-size:0.7rem; color:var(--text2); margin-top:auto;
+  padding:10px 16px;
+  background:var(--bg);
+  border-top:1px solid var(--border);
+  font-size:0.68rem;
+  color:var(--text2);
+  margin-top:auto;
 }
-#status .stat { display:flex; justify-content:space-between; margin-bottom:3px; }
-#status .stat span:last-child { color:var(--text); font-family:monospace; }
 
-/* 3D Viewport */
-canvas { display:block; }
-#viewport-overlay {
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  background:var(--bg); z-index:5; flex-direction:column;
+#status .stat {
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:3px;
 }
+
+#status .stat span:last-child {
+  color:var(--text);
+  font-family:'Consolas','Courier New',monospace;
+}
+
+/* ===== VIEWPORT ===== */
+canvas { display:block; }
+
+#viewport-overlay {
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--bg);
+  z-index:5;
+  flex-direction:column;
+}
+
 #viewport-overlay.hidden { display:none; }
 #viewport-overlay svg { width:48px; height:48px; opacity:0.3; margin-bottom:12px; }
 #viewport-overlay p { color:var(--text2); font-size:0.85rem; }
 
-/* Processing indicator */
+/* Processing */
 #processing {
-  position:absolute; top:16px; right:16px; background:rgba(0,0,0,0.8);
-  border-radius:8px; padding:8px 16px; font-size:0.75rem; color:var(--accent);
-  display:none; z-index:10; backdrop-filter:blur(8px);
+  position:absolute;
+  top:16px;
+  right:16px;
+  background:rgba(34,34,58,0.9);
+  border:1px solid var(--accent);
+  border-radius:8px;
+  padding:8px 16px;
+  font-size:0.75rem;
+  color:var(--accent);
+  display:none;
+  z-index:10;
+  backdrop-filter:blur(8px);
 }
 
 /* Layer slider */
 #layer-ctrl {
-  position:absolute; bottom:16px; left:16px; right:16px;
-  background:rgba(0,0,0,0.7); border-radius:10px; padding:10px 16px;
-  backdrop-filter:blur(8px); display:none; z-index:5;
+  position:absolute;
+  bottom:16px;
+  left:16px;
+  right:16px;
+  background:rgba(34,34,58,0.9);
+  border-radius:10px;
+  padding:10px 16px;
+  backdrop-filter:blur(8px);
+  display:none;
+  z-index:5;
 }
-#layer-ctrl label { font-size:0.7rem; color:var(--text2); display:flex; justify-content:space-between; margin-bottom:4px; }
+
+#layer-ctrl label {
+  font-size:0.7rem;
+  color:var(--text2);
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:4px;
+}
+
 #layer-ctrl label span { color:var(--text); font-weight:600; }
-#layer-ctrl input { width:100%; accent-color:var(--accent); }
+
+#layer-ctrl input {
+  width:100%;
+  accent-color:var(--accent);
+  height:4px;
+}
 
 /* Legend */
 #legend {
-  position:absolute; top:16px; left:16px;
-  background:rgba(0,0,0,0.7); border-radius:8px; padding:8px 14px;
-  font-size:0.68rem; backdrop-filter:blur(8px); display:none; z-index:5;
+  position:absolute;
+  top:16px;
+  left:16px;
+  background:rgba(34,34,58,0.9);
+  border-radius:8px;
+  padding:8px 14px;
+  font-size:0.68rem;
+  backdrop-filter:blur(8px);
+  display:none;
+  z-index:5;
 }
+
 .leg-item { display:flex; align-items:center; gap:6px; margin-bottom:4px; color:var(--text2); }
 .leg-dot { width:10px; height:3px; border-radius:2px; }
 
-/* Sub-label */
-.sub-label { font-size:0.68rem; color:var(--accent2); margin-bottom:8px; margin-top:6px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+/* Sub-labels */
+.sub-label {
+  font-size:0.68rem;
+  color:var(--accent2);
+  margin-bottom:8px;
+  margin-top:6px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:1px;
+}
+
 </style>
 </head>
 <body>
@@ -193,6 +476,15 @@ canvas { display:block; }
       <label>Brim Lines <span class="val" id="lbl-brim">0</span></label>
       <input type="range" id="sl-brim" min="0" max="10" value="0" step="1">
       <div class="hint">Extra outline loops on first layer for bed adhesion (0 = off)</div>
+    </div>
+
+    <div class="ctrl">
+      <label>Print Mode <span class="val" id="lbl-mode">Spiral</span></label>
+      <select id="sel-mode">
+        <option value="spiral">Spiral (Vase) - Z rises continuously</option>
+        <option value="normal">Normal - discrete layers, Z steps between</option>
+      </select>
+      <div class="hint">Spiral: Z rises gradually each revolution. Normal: flat layers with Z jumps.</div>
     </div>
   </div>
 
@@ -297,6 +589,30 @@ canvas { display:block; }
         <span class="preset-icon">S</span>
         <span class="preset-name">Terracotta</span>
       </button>
+      <button class="preset-btn" onclick="applyPreset('wicker-basket')">
+        <span class="preset-icon">X</span>
+        <span class="preset-name">Wicker Basket</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('ocean-ripple')">
+        <span class="preset-icon">&#x224B;</span>
+        <span class="preset-name">Ocean Ripple</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('woodgrain')">
+        <span class="preset-icon">&#x2261;</span>
+        <span class="preset-name">Woodgrain</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('chainmail')">
+        <span class="preset-icon">&#x25C8;</span>
+        <span class="preset-name">Chainmail</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('sand-dune')">
+        <span class="preset-icon">&#x223F;</span>
+        <span class="preset-name">Sand Dune</span>
+      </button>
+      <button class="preset-btn" onclick="applyPreset('tyre-tread')">
+        <span class="preset-icon">&#x2503;</span>
+        <span class="preset-name">Tyre Tread</span>
+      </button>
     </div>
   </div>
 
@@ -373,7 +689,10 @@ canvas { display:block; }
 let rawLines = null;
 let parsedEntries = null;
 let totalLayers = 0;
-let layerCircumference = 0;  // path length of one repeating layer (for wavelength snapping)
+let layerCircumference = 0;  // reference circumference (layer 2) for wavelength snapping
+let layerStartDist = {};     // cumDist at start of each layer
+let layerCircumferences = {};// circumference of each layer
+let layerTargetZ = {};       // target Z height per layer from ;Z: comments
 let lineGroups = [];
 let compareGroups = [];
 let scene, camera, renderer;
@@ -422,9 +741,16 @@ function parseGcode() {
   const paramRe = /([XYZEF])([-+]?\d*\.?\d+)/g;
   let cx=0, cy=0, cz=0, cumDist=0, layerCount=0;
   const entries = [];
+  layerTargetZ = {};  // reset target Z per layer
 
   for (const raw of rawLines) {
     const line = raw.trim();
+
+    // Capture target Z from slicer comments like ;Z:4.2 (comes AFTER ;LAYER_CHANGE)
+    var zMatch = line.match(/^;Z:([\d.]+)/);
+    if (zMatch && layerCount >= 1) {
+      layerTargetZ[layerCount] = parseFloat(zMatch[1]);
+    }
 
     if (line === ';LAYER_CHANGE') {
       layerCount++;
@@ -466,14 +792,22 @@ function parseGcode() {
   parsedEntries = entries;
   totalLayers = layerCount;
 
-  // Compute circumference of layer 2 (consistent repeating layer, no skirt)
-  // Used to snap wavelength so waves fit exactly around the model
-  layerCircumference = 0;
+  // Compute per-layer start distances and circumferences
+  // Used so every layer gets the exact same number of waves regardless of circumference
+  layerStartDist = {};
+  layerCircumferences = {};
+  // layerTargetZ was already populated during the parsing loop above
   for (var ci = 0; ci < entries.length; ci++) {
-    if (entries[ci].type === 'print' && entries[ci].layer === 2) {
-      layerCircumference += entries[ci].segLen;
+    if (entries[ci].type === 'print') {
+      var lyr = entries[ci].layer;
+      if (!(lyr in layerStartDist)) {
+        layerStartDist[lyr] = entries[ci].distStart;
+      }
+      layerCircumferences[lyr] = (layerCircumferences[lyr] || 0) + entries[ci].segLen;
     }
   }
+  // Use layer 2 as reference (avoids skirt on layer 1)
+  layerCircumference = layerCircumferences[2] || layerCircumferences[1] || 0;
 
   const printMoves = entries.filter(e=>e.type==='print');
   document.getElementById('st-layers').textContent = layerCount;
@@ -483,12 +817,18 @@ function parseGcode() {
   updateLabels();
 }
 
-// Snap wavelength to fit an exact whole number of waves in the circumference
+// Snap wavelength to fit an exact whole number of waves in the reference circumference
 function snapWavelength(rawWL) {
   if (layerCircumference <= 0 || rawWL <= 0) return rawWL;
   var nWaves = Math.round(layerCircumference / rawWL);
   if (nWaves < 1) nWaves = 1;
   return layerCircumference / nWaves;
+}
+
+// Get the number of waves that fit the reference circumference
+function getNumWaves(wavelength) {
+  if (layerCircumference <= 0 || wavelength <= 0) return 0;
+  return Math.round(layerCircumference / wavelength);
 }
 
 // -- Wave Pattern Functions ---------------------------------------
@@ -567,9 +907,10 @@ function getParams() {
   var zWavePct = parseFloat(document.getElementById('sl-zwave').value) / 100;
   var zWaveAmp = height * zWavePct / 2; // as fraction of layer height
   var flowMod = parseFloat(document.getElementById('sl-flow').value) / 100;
+  var printMode = document.getElementById('sel-mode').value;
   return { width, height, amplitude, wavelength, smooth, segMM, ampPct,
            altEvery, driftDeg, driftRad, pattern, brimLines,
-           zWavePct, zWaveAmp, flowMod };
+           zWavePct, zWaveAmp, flowMod, printMode };
 }
 
 function smoothDir(entries, idx, radius) {
@@ -760,6 +1101,8 @@ function processWave(entries, params, forExport) {
   var flowMod = params.flowMod;
   var MIN_MOVE = 1.0;
   var waveFn = getWaveFn(pattern);
+  var nWaves = getNumWaves(wavelength);  // exact whole number of waves per layer
+  var printMode = params.printMode || 'spiral';
 
   if (forExport) {
     var out = [];
@@ -776,6 +1119,21 @@ function processWave(entries, params, forExport) {
       }
       var e = entries[i];
       if (e.type !== 'print' || e.segLen < MIN_MOVE) {
+        // For normal mode, rewrite Z-travel lines at layer changes
+        if (e.type === 'pass' && printMode === 'normal') {
+          var travelMatch = e.text.trim().match(/^G1\s+Z([\d.]+)\s+F([\d.]+)/);
+          if (travelMatch) {
+            // Find which layer we're about to print (look ahead)
+            var nextLayer = 0;
+            for (var ni = i+1; ni < entries.length; ni++) {
+              if (entries[ni].type === 'print') { nextLayer = entries[ni].layer; break; }
+            }
+            if (nextLayer > 0 && layerTargetZ[nextLayer]) {
+              out.push('G1 Z' + layerTargetZ[nextLayer].toFixed(3) + ' F' + travelMatch[2]);
+              continue;
+            }
+          }
+        }
         out.push(e.text);
         continue;
       }
@@ -783,17 +1141,38 @@ function processWave(entries, params, forExport) {
       var perpX = -dir[1], perpY = dir[0];
       var ePerMM = e.segLen > 0 ? e.e / e.segLen : 0;
       var fStr = e.f !== null ? ' F' + e.f.toFixed(0) : '';
-      var dx=e.x1-e.x0, dy=e.y1-e.y0, dz=e.z1-e.z0;
+      var dx=e.x1-e.x0, dy=e.y1-e.y0;
       var n = Math.max(2, Math.ceil(e.segLen / segMM));
       var px=e.x0, py=e.y0;
+
+      // Compute Z based on print mode
+      var lyrCirc = layerCircumferences[e.layer] || layerCircumference;
+      var lyrStart = layerStartDist[e.layer] || 0;
+      var thisLayerZ = layerTargetZ[e.layer] || e.z1;
+      var prevLayerZ = layerTargetZ[e.layer - 1] || 0;
 
       var phase = computePhase(e.layer, altEvery, driftRad);
 
       for (var j=1; j<=n; j++) {
         var t = j/n;
-        var xi=e.x0+t*dx, yi=e.y0+t*dy, zi=e.z0+t*dz;
+        var xi=e.x0+t*dx, yi=e.y0+t*dy;
+
+        // Z calculation depends on print mode
+        var zi;
         var cumD = e.distStart + t*e.segLen;
-        var waveT = cumD / wavelength + phase / (2 * Math.PI);
+        var distInLayer = cumD - lyrStart;
+        var layerFrac = lyrCirc > 0 ? distInLayer / lyrCirc : 0;
+
+        if (printMode === 'normal') {
+          // Normal mode: all points in this layer at the layer's target Z
+          zi = thisLayerZ;
+        } else {
+          // Spiral mode: Z rises linearly from previous layer's Z to this layer's Z
+          zi = prevLayerZ + (thisLayerZ - prevLayerZ) * Math.min(layerFrac, 1.0);
+        }
+
+        // Normalised position within this layer: 0 to nWaves
+        var waveT = (lyrCirc > 0 ? (distInLayer / lyrCirc) * nWaves : cumD / wavelength) + phase / (2 * Math.PI);
         var waveVal = waveFn(waveT);
         var wave = amplitude * waveVal;
         var wx = xi + wave*perpX, wy = yi + wave*perpY;
@@ -840,20 +1219,43 @@ function processWave(entries, params, forExport) {
 
     var dir = smoothDir(entries, i, smooth);
     var perpX = -dir[1], perpY = dir[0];
-    var dx=e.x1-e.x0, dy=e.y1-e.y0, dz=e.z1-e.z0;
+    var dx=e.x1-e.x0, dy=e.y1-e.y0;
     var n = Math.max(2, Math.ceil(e.segLen / previewSeg));
 
     if (!layers[layerIdx]) layers[layerIdx] = [];
     var lyr = layers[layerIdx];
-    if (lyr.length === 0) lyr.push([e.x0, e.y0, e.z0]);
+
+    // Compute Z based on print mode
+    var lyrCirc = layerCircumferences[e.layer] || layerCircumference;
+    var lyrStart = layerStartDist[e.layer] || 0;
+    var thisLayerZ = layerTargetZ[e.layer] || e.z1;
+    var prevLayerZ = layerTargetZ[e.layer - 1] || 0;
+
+    if (lyr.length === 0) {
+      var startZ = (printMode === 'normal') ? thisLayerZ : prevLayerZ;
+      lyr.push([e.x0, e.y0, startZ]);
+    }
 
     var phase = computePhase(e.layer, altEvery, driftRad);
 
     for (var j=1; j<=n; j++) {
       var t = j/n;
-      var xi=e.x0+t*dx, yi=e.y0+t*dy, zi=e.z0+t*dz;
+      var xi=e.x0+t*dx, yi=e.y0+t*dy;
+
+      // Z calculation depends on print mode
+      var zi;
       var cumD = e.distStart + t*e.segLen;
-      var waveT = cumD / wavelength + phase / (2 * Math.PI);
+      var distInLayer = cumD - lyrStart;
+      var layerFrac = lyrCirc > 0 ? distInLayer / lyrCirc : 0;
+
+      if (printMode === 'normal') {
+        zi = thisLayerZ;
+      } else {
+        zi = prevLayerZ + (thisLayerZ - prevLayerZ) * Math.min(layerFrac, 1.0);
+      }
+
+      // Normalised position within this layer: 0 to nWaves
+      var waveT = (lyrCirc > 0 ? (distInLayer / lyrCirc) * nWaves : cumD / wavelength) + phase / (2 * Math.PI);
       var waveVal = waveFn(waveT);
       var wave = amplitude * waveVal;
 
@@ -1186,8 +1588,11 @@ function exportGcode() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     var origName = document.getElementById('st-file').textContent.replace(/\.gcode$/i, '');
+    var pat = params.pattern;
+    var wl = Math.round(params.wavelength);
+    var amp = Math.round(params.ampPct * 100);
     a.href = url;
-    a.download = origName + '-wavy.gcode';
+    a.download = origName + '-WF-' + pat + '-a' + amp + '-w' + wl + '.gcode';
     a.click();
     URL.revokeObjectURL(url);
 
@@ -1221,6 +1626,30 @@ var PRESETS = {
   'terracotta': {
     pattern:'noise', amp:100, wl:20, alt:3, drift:10, smooth:6,
     zwave:20, flow:30, res:0.8
+  },
+  'wicker-basket': {
+    pattern:'zigzag', amp:90, wl:20, alt:1, drift:90, smooth:2,
+    zwave:0, flow:30, res:0.8
+  },
+  'ocean-ripple': {
+    pattern:'ripple', amp:60, wl:50, alt:4, drift:5, smooth:10,
+    zwave:15, flow:0, res:1.0
+  },
+  'woodgrain': {
+    pattern:'noise', amp:50, wl:60, alt:8, drift:2, smooth:12,
+    zwave:0, flow:20, res:1.0
+  },
+  'chainmail': {
+    pattern:'diamond', amp:100, wl:12, alt:1, drift:90, smooth:1,
+    zwave:30, flow:50, res:0.6
+  },
+  'sand-dune': {
+    pattern:'sine', amp:40, wl:80, alt:10, drift:3, smooth:15,
+    zwave:10, flow:10, res:1.0
+  },
+  'tyre-tread': {
+    pattern:'square', amp:110, wl:15, alt:1, drift:0, smooth:1,
+    zwave:0, flow:0, res:0.6
   }
 };
 
@@ -1243,6 +1672,14 @@ function applyPreset(name) {
 }
 
 // -- UI Bindings --------------------------------------------------
+// Update slider track fill colours
+function updateSliderFills() {
+  document.querySelectorAll('.ctrl input[type=range]').forEach(function(sl) {
+    var pct = (sl.value - sl.min) / (sl.max - sl.min) * 100;
+    sl.style.background = 'linear-gradient(90deg, var(--accent) 0%, var(--accent) ' + pct + '%, var(--border) ' + pct + '%, var(--border) 100%)';
+  });
+}
+
 function updateLabels() {
   var p = getParams();
   document.getElementById('lbl-amp').textContent = Math.round(p.ampPct*100) + '%';
@@ -1262,9 +1699,18 @@ function updateLabels() {
 }
 
 ['sl-amp','sl-wl','sl-alt','sl-drift','sl-smooth','sl-res','sl-brim','sl-zwave','sl-flow','in-width','in-height'].forEach(function(id) {
-  document.getElementById(id).addEventListener('input', updateLabels);
+  document.getElementById(id).addEventListener('input', function() { updateLabels(); updateSliderFills(); });
 });
+// Also handle the layer slider
+document.getElementById('sl-layers').addEventListener('input', updateSliderFills);
+// Initial fill on page load
+updateSliderFills();
 document.getElementById('sel-pattern').addEventListener('change', updateLabels);
+document.getElementById('sel-mode').addEventListener('change', function() {
+  document.getElementById('lbl-mode').textContent =
+    document.getElementById('sel-mode').value === 'spiral' ? 'Spiral' : 'Normal';
+  if (parsedEntries) runPreview();
+});
 document.getElementById('sl-layers').addEventListener('input', updateLayerVis);
 
 // Auto-preview on slider release or dropdown/checkbox change
