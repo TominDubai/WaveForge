@@ -223,7 +223,7 @@ canvas { display:block; }
     <div class="ctrl">
       <label>Wavelength <span class="val" id="lbl-wl">30mm</span></label>
       <input type="range" id="sl-wl" min="8" max="100" value="30" step="1">
-      <div class="hint">Distance between wave peaks along the path</div>
+      <div class="hint">Auto-snapped so waves fit exactly around the model</div>
     </div>
 
     <div class="sub-label">Layer Alternation</div>
@@ -333,6 +333,7 @@ canvas { display:block; }
     <div class="stat"><span>Layers:</span><span id="st-layers">-</span></div>
     <div class="stat"><span>Print moves:</span><span id="st-moves">-</span></div>
     <div class="stat"><span>Path length:</span><span id="st-path">-</span></div>
+    <div class="stat"><span>Layer circumference:</span><span id="st-circ">-</span></div>
   </div>
 </div>
 
@@ -372,6 +373,7 @@ canvas { display:block; }
 let rawLines = null;
 let parsedEntries = null;
 let totalLayers = 0;
+let layerCircumference = 0;  // path length of one repeating layer (for wavelength snapping)
 let lineGroups = [];
 let compareGroups = [];
 let scene, camera, renderer;
@@ -464,10 +466,29 @@ function parseGcode() {
   parsedEntries = entries;
   totalLayers = layerCount;
 
+  // Compute circumference of layer 2 (consistent repeating layer, no skirt)
+  // Used to snap wavelength so waves fit exactly around the model
+  layerCircumference = 0;
+  for (var ci = 0; ci < entries.length; ci++) {
+    if (entries[ci].type === 'print' && entries[ci].layer === 2) {
+      layerCircumference += entries[ci].segLen;
+    }
+  }
+
   const printMoves = entries.filter(e=>e.type==='print');
   document.getElementById('st-layers').textContent = layerCount;
   document.getElementById('st-moves').textContent = printMoves.length.toLocaleString();
   document.getElementById('st-path').textContent = (cumDist/1000).toFixed(1) + 'm';
+  document.getElementById('st-circ').textContent = layerCircumference.toFixed(1) + 'mm';
+  updateLabels();
+}
+
+// Snap wavelength to fit an exact whole number of waves in the circumference
+function snapWavelength(rawWL) {
+  if (layerCircumference <= 0 || rawWL <= 0) return rawWL;
+  var nWaves = Math.round(layerCircumference / rawWL);
+  if (nWaves < 1) nWaves = 1;
+  return layerCircumference / nWaves;
 }
 
 // -- Wave Pattern Functions ---------------------------------------
@@ -534,7 +555,8 @@ function getParams() {
   var height = parseFloat(document.getElementById('in-height').value) || 2.1;
   var ampPct = parseFloat(document.getElementById('sl-amp').value) / 100;
   var amplitude = (width * ampPct) / 2;
-  var wavelength = parseFloat(document.getElementById('sl-wl').value);
+  var rawWL = parseFloat(document.getElementById('sl-wl').value);
+  var wavelength = snapWavelength(rawWL);
   var smooth = parseInt(document.getElementById('sl-smooth').value);
   var segMM = parseFloat(document.getElementById('sl-res').value);
   var altEvery = parseInt(document.getElementById('sl-alt').value);
@@ -1225,7 +1247,8 @@ function updateLabels() {
   var p = getParams();
   document.getElementById('lbl-amp').textContent = Math.round(p.ampPct*100) + '%';
   document.getElementById('lbl-amp-mm').textContent = '+/-' + p.amplitude.toFixed(2) + 'mm';
-  document.getElementById('lbl-wl').textContent = p.wavelength + 'mm';
+  var nWaves = layerCircumference > 0 ? Math.round(layerCircumference / p.wavelength) : '?';
+  document.getElementById('lbl-wl').textContent = p.wavelength.toFixed(1) + 'mm (' + nWaves + ' waves)';
   document.getElementById('lbl-alt').textContent = p.altEvery === 1 ? '1 layer' : p.altEvery + ' layers';
   document.getElementById('lbl-drift').textContent = p.driftDeg + ' deg/layer';
   document.getElementById('lbl-smooth').textContent = p.smooth;
